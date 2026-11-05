@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(ros_package_template)
+project(hero_chassis_controller)
 
 ## Use C++14
 set(CMAKE_CXX_STANDARD 14)
@@ -33,7 +33,6 @@ find_package(Boost REQUIRED)
 catkin_package(
     INCLUDE_DIRS
     include
-    ## This is only necessary because Eigen3 sets a non-standard EIGEN3_INCLUDE_DIR variable
     ${EIGEN3_INCLUDE_DIR}
     LIBRARIES
     ${PROJECT_NAME}_core
@@ -41,12 +40,6 @@ catkin_package(
     roscpp
     sensor_msgs
     DEPENDS
-    ## find_package(Eigen3) provides a non standard EIGEN3_INCLUDE_DIR instead of Eigen3_INCLUDE_DIRS.
-    ## Therefore, the DEPEND does not work as expected and we need to add the directory to the INCLUDE_DIRS
-    # Eigen3
-
-    ## Boost is not part of the DEPENDS since it is only used in source files,
-    ## Dependees do not depend on Boost when they depend on this package.
 )
 
 ###########
@@ -74,7 +67,12 @@ target_compile_features(${PROJECT_NAME}_core INTERFACE cxx_std_11)
 add_executable(${PROJECT_NAME}
     src/${PROJECT_NAME}_node.cpp
     src/RosPackageTemplate.cpp
-    )
+        src/Algorithm.cpp
+        src/hero_chassis_controller_node.cpp
+        src/RosPackageTemplate.cpp
+        include/ros_package_template/Algorithm.hpp
+        include/ros_package_template/RosPackageTemplate.hpp
+)
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_11)
 
 ## Add dependencies to exported targets, like ROS msgs or srvs

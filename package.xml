@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>ros_package_template</name>
+  <name>hero_chassis_controller</name>
   <version>0.1.0</version>
-  <description>A template for ROS packages.</description>
-  <maintainer email="liaoqiayuan@gmail.com">Qiayuan Liao</maintainer>
+  <description>Ros_control wheel chassis controller for Gazebo hero robot.</description>
+  <maintainer email="k.jzz00625@gmail.com">Zane Ji</maintainer>
   <license>BSD</license>
-  <author email="liaoqiayuan@gmail.com">Qiayuan Liao</author>
+  <author email="k.jzz00625@gmail.com">Zane Ji</author>
 
   <!-- buildtool_depend: dependencies of the build process -->
   <buildtool_depend>catkin</buildtool_depend>

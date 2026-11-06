@@ -11,11 +11,13 @@ add_definitions(-Wall -Werror)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED
-    COMPONENTS
-    roscpp
-    sensor_msgs
-    roslint
-    )
+        COMPONENTS
+        roscpp
+        sensor_msgs
+        roslint
+        control_toolbox
+        dynamic_reconfigure
+        )
 
 ## Find system libraries
 find_package(Eigen3 REQUIRED)
@@ -59,19 +61,19 @@ include_directories(
 
 ## Declare a cpp library
 add_library(${PROJECT_NAME}_core
-    src/Algorithm.cpp
-    )
+    src/${PROJECT_NAME}_node.cpp
+        src/PID.cpp
+)
 target_compile_features(${PROJECT_NAME}_core INTERFACE cxx_std_11)
 
 ## Declare cpp executables
 add_executable(${PROJECT_NAME}
     src/${PROJECT_NAME}_node.cpp
-    src/RosPackageTemplate.cpp
-        src/Algorithm.cpp
-        src/hero_chassis_controller_node.cpp
-        src/RosPackageTemplate.cpp
-        include/ros_package_template/Algorithm.hpp
-        include/ros_package_template/RosPackageTemplate.hpp
+        test/hero_chassis_controller.cpp
+        test/PID.cpp
+        src/PID.cpp
+        include/hero_chassis_controller/HeroChassisController.h
+        include/hero_chassis_controller/PID.h
 )
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_11)
 
@@ -110,7 +112,7 @@ install(
 install(
     DIRECTORY include/${PROJECT_NAME}/
     DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-    FILES_MATCHING PATTERN "*.hpp"
+    FILES_MATCHING PATTERN "*.h"
 )
 
 # Mark other files for installation
@@ -127,8 +129,8 @@ if (${CATKIN_ENABLE_TESTING})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   ## Add gtest based cpp test target and link libraries
   catkin_add_gtest(${PROJECT_NAME}-test
-      test/test_ros_package_template.cpp
-      test/AlgorithmTest.cpp)
+      test/hero_chassis_controller.cpp
+      test/PID.cpp)
   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_core)
 endif ()
 

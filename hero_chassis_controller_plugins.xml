@@ -1,0 +1,11 @@
+<library path="lib/libhero_chassis_controller_core">
+
+  <class name="hero_chassis_controller/HeroChassisController"
+         type="hero_chassis_controller::HeroChassisController"
+         base_class_type="controller_interface::ControllerBase">
+    <description>
+      Mecanum-wheel chassis controller for the RM hero robot.
+    </description>
+  </class>
+
+</library>

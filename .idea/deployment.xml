@@ -9,6 +9,7 @@
           </mappings>
           <excludedPaths>
             <excludedPath local="true" path="$PROJECT_DIR$/../build/hero_chassis_controller/build" />
+            <excludedPath local="true" path="$PROJECT_DIR$/../build/hero_chassis_controller/build" />
           </excludedPaths>
         </serverdata>
       </paths>

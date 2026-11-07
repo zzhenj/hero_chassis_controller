@@ -7,16 +7,29 @@
   <license>BSD</license>
   <author email="k.jzz00625@gmail.com">Zane Ji</author>
 
-  <!-- buildtool_depend: dependencies of the build process -->
   <buildtool_depend>catkin</buildtool_depend>
-  <!-- build_depend: dependencies only used in source files -->
   <build_depend>boost</build_depend>
-  <!-- depend: build, export, and execution dependency -->
+  <build_depend>roslint</build_depend>
+
   <depend>eigen</depend>
   <depend>roscpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf</depend>
+  <depend>controller_manager_msgs</depend>
+  <depend>controller_interface</depend>
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>realtime_tools</depend>
   <depend>control_toolbox</depend>
   <depend>dynamic_reconfigure</depend>
 
-  <build_depend>roslint</build_depend>
+  <exec_depend>rm_description_for_task</exec_depend>
+  <exec_depend>joint_state_controller</exec_depend>
+  <exec_depend>teleop_twist_keyboard</exec_depend>
+
+  <export>
+    <controller_interface plugin="${prefix}/hero_chassis_controller_plugins.xml"/>
+  </export>
 </package>

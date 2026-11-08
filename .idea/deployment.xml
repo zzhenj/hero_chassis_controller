@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="远程主机 (e89d55f4-9249-4129-a946-08908e5de7e4)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/tmp.BaTan6YPph/hero_chassis_controller" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/../build/hero_chassis_controller/build" />
+            <excludedPath local="true" path="$PROJECT_DIR$/../build/hero_chassis_controller/build" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

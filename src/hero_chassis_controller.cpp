@@ -76,12 +76,12 @@ bool HeroChassisController::init(hardware_interface::EffortJointInterface* effor
   for (int i = 0; i < 4; ++i)
   {
     // Node handle of this wheel's parameters
-    ros::NodeHandle wheel_nh(controller_nh, "wheels/" + wheel_names[i]);
+    ros::NodeHandle wheel_nh(controller_nh, "wheels/" + WHEEL_NAMES[i]);
     // Joint handle
     std::string joint_name;
     if (!wheel_nh.getParam("joint", joint_name))
     {
-      ROS_ERROR_STREAM("No 'joint' parameter specified for " << wheel_names[i] << " in YAML");
+      ROS_ERROR_STREAM("No 'joint' parameter specified for " << WHEEL_NAMES[i] << " in YAML");
       return false;
     }
     try
@@ -98,7 +98,7 @@ bool HeroChassisController::init(hardware_interface::EffortJointInterface* effor
     ros::NodeHandle pid_nh(wheel_nh, "pid");
     if (!pid_controllers_[i].init(pid_nh))
     {
-      ROS_ERROR_STREAM("Failed to initialize pid controllers for:" << wheel_names[i]);
+      ROS_ERROR_STREAM("Failed to initialize pid controllers for:" << WHEEL_NAMES[i]);
       return false;
     }
   }

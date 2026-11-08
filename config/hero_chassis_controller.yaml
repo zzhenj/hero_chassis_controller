@@ -1,0 +1,37 @@
+hero_chassis_controller:
+  type: hero_chassis_controller/HeroChassisController
+
+  velocity_mode: "global"
+
+  world_frame: "odom"
+
+  wheel_radius: 0.07625
+  track_width_x: 0.4
+  track_width_y: 0.4
+
+  max_effort: 5.0
+  max_velocity: 50.0
+
+  wheels:
+    lf_wheel:
+      joint: "left_front_wheel_joint"
+      pid: {p: 50.0, i: 0.01, d: 0.1, i_clamp_max: 5.0, i_clamp_min: -5.0}
+
+
+    rf_wheel:
+      joint: "right_front_wheel_joint"
+      pid: {p: 50.0, i: 0.01, d: 0.1, i_clamp_max: 5.0, i_clamp_min: -5.0}
+
+
+    lb_wheel:
+      joint: "left_back_wheel_joint"
+      pid: {p: 50.0, i: 0.01, d: 0.1, i_clamp_max: 5.0, i_clamp_min: -5.0}
+
+
+    rb_wheel:
+      joint: "right_back_wheel_joint"
+      pid: {p: 50.0, i: 0.01, d: 0.1, i_clamp_max: 5.0, i_clamp_min: -5.0}
+
+joint_state_controller:
+  type: joint_state_controller/JointStateController
+  publish_rate: 50

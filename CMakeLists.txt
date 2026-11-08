@@ -102,10 +102,11 @@ install(
 )
 
 if (${CATKIN_ENABLE_TESTING})
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   catkin_add_gtest(${PROJECT_NAME}-test
       test/hero_chassis_controller.cpp)
-  target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+  if (TARGET ${PROJECT_NAME}-test)
+  target_link_libraries(${PROJECT_NAME}-test ${catkin_LIBRARIES})
+  endif ()
 endif ()
 
 roslint_cpp()

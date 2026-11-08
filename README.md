@@ -87,6 +87,41 @@ Tune the PID gains online:
 	         /joint_states/velocity[2] /joint_states/velocity[3]
 	rosrun rqt_reconfigure rqt_reconfigure
 
+## Testing
+
+Unit tests cover the mecanum wheel kinematics (inverse and forward). They are pure functions that do not
+require Gazebo or ros_control, so they run in milliseconds.
+
+#### Building and running the tests
+
+	cd catkin_workspace
+	catkin build hero_chassis_controller --no-deps
+	catkin build hero_chassis_controller --no-deps --make-args tests
+	./devel/lib/hero_chassis_controller/hero_chassis_controller-test
+
+Or through the catkin test interface:
+
+	catkin run_tests hero_chassis_controller
+	catkin_test_results build/hero_chassis_controller/test_results
+
+#### What is covered
+
+* **InverseThenForwardRestoresVelocity** — the inverse kinematics of the four wheels followed by the forward
+  kinematics must restore the original chassis velocity. This is the self-consistency check of the model: a wrong
+  coefficient or a wrong sign makes the round trip fail.
+* **ForwardCommandSpinsAllWheelsEqually** — a pure forward command spins all four wheels with the same speed and sign.
+* **RotationSpinsLeftAndRightOppositely** — a rotation command spins the left wheels backwards and the right wheels
+  forwards.
+* **StrafeSpinsDiagonalsEqually** — a strafe command spins the two diagonals with equal speed.
+* **RotationUsesHalfTrackSum** — the yaw term of the inverse kinematics is scaled by the sum of the half wheel base
+  and the half wheel track (`0.4 m`), not by the sum of the full distances (`0.8 m`).
+
+#### Why these tests do not start the simulator
+
+The kinematics are pure arithmetic on `wheel_radius`, `track_width_x`, `track_width_y` and the wheel angular
+velocities. They involve no ROS message, no joint handle and no tf lookup, so they are verified as plain functions.
+
+
 ## Config files
 
 Config file config

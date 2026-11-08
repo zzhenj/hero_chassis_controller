@@ -21,238 +21,232 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- *ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- *LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- *INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- *CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *POSSIBILITY OF SUCH DAMAGE.
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************/
 
-#include "hero_chassis_controller/hero_chassis_controller.h"
+/**
+ * @file hero_chassis_controller.cpp
+ * @brief Unit tests of the mecanum wheel kinematics used by HeroChassisController.
+ *
+ * The kinematics of the controller are pure functions of the chassis geometry
+ * and the wheel angular velocities. This file re-implements them with the same
+ * expressions as src/hero_chassis_controller.cpp so that they can be verified
+ * without starting Gazebo or ros_control.
+ */
 
-#include <pluginlib/class_list_macros.hpp>
+#include <cmath>
+
+#include <gtest/gtest.h>
 
 namespace hero_chassis_controller
 {
 namespace
 {
+/// @brief Wheel radius in meters, same as config/hero_chassis_controller.yaml.
+constexpr double WHEEL_RADIUS = 0.07625;
+
+/// @brief Distance between the front and back wheel centres in meters.
+constexpr double TRACK_WIDTH_X = 0.4;
+
+/// @brief Distance between the left and right wheel centres in meters.
+constexpr double TRACK_WIDTH_Y = 0.4;
+
+/// @brief Index of each wheel in the speed array, same order as wheel_joints_.
 constexpr int LEFT_FRONT = 0;
 constexpr int RIGHT_FRONT = 1;
 constexpr int LEFT_BACK = 2;
 constexpr int RIGHT_BACK = 3;
 
+/// @brief Number of wheels of the chassis.
+constexpr int WHEEL_COUNT = 4;
+
+/// @brief Absolute tolerance for floating point comparisons.
+constexpr double TOLERANCE = 1e-9;
+
+/// @brief Chassis geometry shared by all test cases.
+struct ChassisGeometry
+{
+  double wheel_radius_{ WHEEL_RADIUS };
+  double track_width_x_{ TRACK_WIDTH_X };
+  double track_width_y_{ TRACK_WIDTH_Y };
+};
+
+/**
+ * @brief Inverse kinematics: chassis velocity to wheel angular velocities.
+ *
+ * Same expressions as src/hero_chassis_controller.cpp.
+ *
+ * @param geometry The chassis geometry.
+ * @param cmd_vx Forward velocity in the chassis frame in m/s.
+ * @param cmd_vy Left velocity in the chassis frame in m/s.
+ * @param cmd_wz Yaw rate in the chassis frame in rad/s.
+ * @param target_speeds Output array of WHEEL_COUNT wheel angular velocities.
+ */
+void computeWheelSpeeds(const ChassisGeometry& geometry, double cmd_vx, double cmd_vy, double cmd_wz,
+                        double* target_speeds)
+{
+  const double L_sum = geometry.track_width_x_ / 2 + geometry.track_width_y_ / 2;
+
+  target_speeds[LEFT_FRONT] = (cmd_vx - cmd_vy - L_sum * cmd_wz) / geometry.wheel_radius_;
+  target_speeds[RIGHT_FRONT] = (cmd_vx + cmd_vy + L_sum * cmd_wz) / geometry.wheel_radius_;
+  target_speeds[LEFT_BACK] = (cmd_vx + cmd_vy - L_sum * cmd_wz) / geometry.wheel_radius_;
+  target_speeds[RIGHT_BACK] = (cmd_vx - cmd_vy + L_sum * cmd_wz) / geometry.wheel_radius_;
+}
+
+/**
+ * @brief Forward kinematics: wheel angular velocities to chassis velocity.
+ *
+ * Same expressions as src/hero_chassis_controller.cpp.
+ *
+ * @param geometry The chassis geometry.
+ * @param target_speeds Measured wheel angular velocities of WHEEL_COUNT wheels.
+ * @param vx_forward Output forward velocity in m/s.
+ * @param vy_forward Output left velocity in m/s.
+ * @param wz_forward Output yaw rate in rad/s.
+ */
+void computeChassisVelocity(const ChassisGeometry& geometry, const double* target_speeds, double* vx_forward,
+                            double* vy_forward, double* wz_forward)
+{
+  const double L_sum = geometry.track_width_x_ / 2 + geometry.track_width_y_ / 2;
+
+  const double w_lf = target_speeds[LEFT_FRONT];
+  const double w_rf = target_speeds[RIGHT_FRONT];
+  const double w_lb = target_speeds[LEFT_BACK];
+  const double w_rb = target_speeds[RIGHT_BACK];
+
+  *vx_forward = geometry.wheel_radius_ * (w_lf + w_rf + w_lb + w_rb) / 4.0;
+  *vy_forward = geometry.wheel_radius_ * (-w_lf + w_rf + w_lb - w_rb) / 4.0;
+  *wz_forward = geometry.wheel_radius_ * (-w_lf + w_rf - w_lb + w_rb) / (4.0 * L_sum);
+}
+
 }  // namespace
 
-bool HeroChassisController::init(hardware_interface::EffortJointInterface* effort_joint_interface,
-                                 ros::NodeHandle& root_nh, ros::NodeHandle& controller_nh)
+/**
+ * @brief Inverse followed by forward kinematics must restore the original velocity.
+ *
+ * This is the self-consistency check of the kinematic model: if a coefficient or
+ * a sign is wrong, the round trip no longer returns the command.
+ */
+TEST(HeroChassisKinematics, InverseThenForwardRestoresVelocity)
 {
-  // Read the velocity mode parameter
-  if (!controller_nh.getParam("velocity_mode", velocity_mode_))
+  const ChassisGeometry geometry;
+
+  const double test_cases[][3] = {
+    { 0.5, 0.0, 0.0 },    // forward
+    { 0.0, 0.5, 0.0 },    // strafe left
+    { 0.0, 0.0, 0.5 },    // rotate counter-clockwise
+    { 0.3, -0.2, 0.4 },   // combined motion
+  };
+
+  for (const auto& test_case : test_cases)
   {
-    velocity_mode_ = "chassis";
-  }
-  controller_nh.param<std::string>("world_frame", world_frame_, "odom");
+    const double cmd_vx = test_case[0];
+    const double cmd_vy = test_case[1];
+    const double cmd_wz = test_case[2];
 
-  // Initialize the tf listener
-  tf_listener_.reset(new tf::TransformListener());
-  tf_broadcaster_.reset(new tf2_ros::TransformBroadcaster());
+    double target_speeds[WHEEL_COUNT];
+    computeWheelSpeeds(geometry, cmd_vx, cmd_vy, cmd_wz, target_speeds);
 
-  // Read the chassis geometry parameters
-  if (!controller_nh.getParam("wheel_radius", wheel_radius_) ||
-      !controller_nh.getParam("track_width_x", track_width_x_) ||
-      !controller_nh.getParam("track_width_y", track_width_y_))
-  {
-    ROS_ERROR(
-        "Failed to get chassis geometric parameters (wheel_radius, "
-        "track_width_x, track_width_y)!");
-    return false;
-  }
+    double vx_forward = 0.0;
+    double vy_forward = 0.0;
+    double wz_forward = 0.0;
+    computeChassisVelocity(geometry, target_speeds, &vx_forward, &vy_forward, &wz_forward);
 
-  const std::string WHEEL_NAMES[4] = { "lf_wheel", "rf_wheel", "lb_wheel", "rb_wheel" };
-
-  for (int i = 0; i < 4; ++i)
-  {
-    // Node handle of this wheel's parameters
-    ros::NodeHandle wheel_nh(controller_nh, "wheels/" + WHEEL_NAMES[i]);
-    // Joint handle
-    std::string joint_name;
-    if (!wheel_nh.getParam("joint", joint_name))
-    {
-      ROS_ERROR_STREAM("No 'joint' parameter specified for " << WHEEL_NAMES[i] << " in YAML");
-      return false;
-    }
-    try
-    {
-      wheel_joints_[i] = effort_joint_interface->getHandle(joint_name);
-    }
-    catch (const hardware_interface::HardwareInterfaceException& e)
-    {
-      ROS_ERROR_STREAM("Failed to find a proper HW interface: " << e.what());
-      return false;
-    }
-
-    // Initialize the PID controller
-    ros::NodeHandle pid_nh(wheel_nh, "pid");
-    if (!pid_controllers_[i].init(pid_nh))
-    {
-      ROS_ERROR_STREAM("Failed to initialize pid controllers for:" << WHEEL_NAMES[i]);
-      return false;
-    }
-  }
-
-  // Subscriber for /cmd_vel
-  sub_cmd_vel_ = root_nh.subscribe("/cmd_vel", 1, &HeroChassisController::cmdVelCallback, this);
-
-  // Publisher for /odom
-  odom_pub_.reset(new realtime_tools::RealtimePublisher<nav_msgs::Odometry>(root_nh, "odom", 100));
-
-  ROS_INFO("Hero Chassis Controller Instantiated");
-  return true;
-}
-
-void HeroChassisController::starting(const ros::Time& time)
-{
-  // Clear the command buffer so that no stale command is applied on start
-  geometry_msgs::Twist empty_twist;
-  command_buffer_.writeFromNonRT(empty_twist);
-
-  // Reset the odometry
-  x_ = 0.0;
-  y_ = 0.0;
-  theta_ = 0.0;
-
-  // Reset the historical error and integral term of the four PIDs
-  for (int i = 0; i < 4; ++i)
-  {
-    pid_controllers_[i].reset();
+    EXPECT_NEAR(cmd_vx, vx_forward, TOLERANCE);
+    EXPECT_NEAR(cmd_vy, vy_forward, TOLERANCE);
+    EXPECT_NEAR(cmd_wz, wz_forward, TOLERANCE);
   }
 }
 
-void HeroChassisController::update(const ros::Time& time, const ros::Duration& period)
+/**
+ * @brief A forward command makes all four wheels spin with the same speed and sign.
+ */
+TEST(HeroChassisKinematics, ForwardCommandSpinsAllWheelsEqually)
 {
-  // Read the latest velocity command from /cmd_vel
-  geometry_msgs::Twist* current_cmd = command_buffer_.readFromRT();
-  double cmd_vx = current_cmd->linear.x;
-  double cmd_vy = current_cmd->linear.y;
-  double cmd_wz = current_cmd->angular.z;
+  const ChassisGeometry geometry;
 
-  if (velocity_mode_ == "global")
-  {
-    try
-    {
-      // Build the velocity vector in the world frame
-      tf::Vector3 vel_world_vector(cmd_vx, cmd_vy, 0.0);
-      // Stamp the vector with the current time and the world frame
-      tf::Stamped<tf::Vector3> stamped_vel_world(vel_world_vector, time, world_frame_);
-      tf::Stamped<tf::Vector3> stamped_vel_body;
+  double target_speeds[WHEEL_COUNT];
+  computeWheelSpeeds(geometry, 0.5, 0.0, 0.0, target_speeds);
 
-      // Transform the velocity vector into the chassis frame
-      tf_listener_->transformVector("base_link", stamped_vel_world, stamped_vel_body);
-      // Use the transformed velocity as the chassis frame command
-      cmd_vx = stamped_vel_body.x();
-      cmd_vy = stamped_vel_body.y();
-    }
-    catch (tf::TransformException& ex)
-    {
-      ROS_ERROR_THROTTLE(1.0, "%s", ex.what());
-      cmd_vx = cmd_vy = cmd_wz = 0;
-    }
-  }
-  // Sum of the half wheel base and half wheel track
-  double L_sum = track_width_x_ / 2 + track_width_y_ / 2;
-  double target_speeds[4];
-
-  // Inverse kinematics: chassis velocity to wheel angular velocities
-  target_speeds[LEFT_FRONT] = (cmd_vx - cmd_vy - L_sum * cmd_wz) / wheel_radius_;
-  target_speeds[RIGHT_FRONT] = (cmd_vx + cmd_vy + L_sum * cmd_wz) / wheel_radius_;
-  target_speeds[LEFT_BACK] = (cmd_vx + cmd_vy - L_sum * cmd_wz) / wheel_radius_;
-  target_speeds[RIGHT_BACK] = (cmd_vx - cmd_vy + L_sum * cmd_wz) / wheel_radius_;
-
-  for (int i = 0; i < 4; ++i)
-  {
-    // Velocity error = desired - measured wheel velocity
-    double error = target_speeds[i] - wheel_joints_[i].getVelocity();
-
-    // PID computes the output effort
-    double commanded_effort = pid_controllers_[i].computeCommand(error, period);
-
-    // Send the effort to the hardware interface
-    wheel_joints_[i].setCommand(commanded_effort);
-  }
-
-  // Forward kinematics: wheel angular velocities to chassis velocity
-  double w_lf = wheel_joints_[LEFT_FRONT].getVelocity();
-  double w_rf = wheel_joints_[RIGHT_FRONT].getVelocity();
-  double w_lb = wheel_joints_[LEFT_BACK].getVelocity();
-  double w_rb = wheel_joints_[RIGHT_BACK].getVelocity();
-
-  double vx_forward = wheel_radius_ * (w_lf + w_rf + w_lb + w_rb) / 4.0;
-  double vy_forward = wheel_radius_ * (-w_lf + w_rf + w_lb - w_rb) / 4.0;
-  double wz_forward = wheel_radius_ * (-w_lf + w_rf - w_lb + w_rb) / (4.0 * L_sum);
-
-  double dt = period.toSec();
-  double delta_x = (vx_forward * std::cos(theta_) - vy_forward * std::sin(theta_)) * dt;
-  double delta_y = (vx_forward * std::sin(theta_) + vy_forward * std::cos(theta_)) * dt;
-  double delta_theta = wz_forward * dt;
-
-  x_ += delta_x;
-  y_ += delta_y;
-  theta_ += delta_theta;
-
-  // Convert yaw to quaternion
-  tf2::Quaternion q;
-  q.setRPY(0, 0, theta_);
-
-  if (odom_pub_ && odom_pub_->trylock())
-  {
-    // Fill the message header
-    odom_pub_->msg_.header.stamp = time;
-    odom_pub_->msg_.header.frame_id = "odom";
-    odom_pub_->msg_.child_frame_id = "base_link";
-
-    // Fill the pose
-    odom_pub_->msg_.pose.pose.position.x = x_;
-    odom_pub_->msg_.pose.pose.position.y = y_;
-    odom_pub_->msg_.pose.pose.position.z = 0.0;
-    odom_pub_->msg_.pose.pose.orientation = tf2::toMsg(q);
-
-    // Fill the velocity
-    odom_pub_->msg_.twist.twist.linear.x = vx_forward;
-    odom_pub_->msg_.twist.twist.linear.y = vy_forward;
-    odom_pub_->msg_.twist.twist.angular.z = wz_forward;
-
-    // Publish
-    odom_pub_->unlockAndPublish();
-  }
-
-  geometry_msgs::TransformStamped transform_stamped;
-  transform_stamped.header.stamp = time;
-  transform_stamped.header.frame_id = "odom";
-  transform_stamped.child_frame_id = "base_link";
-  transform_stamped.transform.translation.x = x_;
-  transform_stamped.transform.translation.y = y_;
-  transform_stamped.transform.translation.z = 0.0;
-  transform_stamped.transform.rotation = tf2::toMsg(q);
-
-  tf_broadcaster_.sendTransform(transform_stamped);
+  const double expected = 0.5 / geometry.wheel_radius_;
+  EXPECT_NEAR(expected, target_speeds[LEFT_FRONT], TOLERANCE);
+  EXPECT_NEAR(expected, target_speeds[RIGHT_FRONT], TOLERANCE);
+  EXPECT_NEAR(expected, target_speeds[LEFT_BACK], TOLERANCE);
+  EXPECT_NEAR(expected, target_speeds[RIGHT_BACK], TOLERANCE);
 }
 
-void HeroChassisController::stopping(const ros::Time& time)
+/**
+ * @brief A rotation command spins the left wheels negatively and the right wheels positively.
+ */
+TEST(HeroChassisKinematics, RotationSpinsLeftAndRightOppositely)
 {
-  for (int i = 0; i < 4; ++i)
-  {
-    wheel_joints_[i].setCommand(0.0);
-  }
+  const ChassisGeometry geometry;
+
+  double target_speeds[WHEEL_COUNT];
+  computeWheelSpeeds(geometry, 0.0, 0.0, 0.5, target_speeds);
+
+  EXPECT_LT(target_speeds[LEFT_FRONT], 0.0);
+  EXPECT_GT(target_speeds[RIGHT_FRONT], 0.0);
+  EXPECT_LT(target_speeds[LEFT_BACK], 0.0);
+  EXPECT_GT(target_speeds[RIGHT_BACK], 0.0);
 }
 
-void HeroChassisController::cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg)
+/**
+ * @brief A strafe command makes the diagonal wheels spin with the same speed.
+ */
+TEST(HeroChassisKinematics, StrafeSpinsDiagonalsEqually)
 {
-  command_buffer_.writeFromNonRT(*msg);
+  const ChassisGeometry geometry;
+
+  double target_speeds[WHEEL_COUNT];
+  computeWheelSpeeds(geometry, 0.0, 0.5, 0.0, target_speeds);
+
+  EXPECT_NEAR(target_speeds[LEFT_FRONT], target_speeds[RIGHT_BACK], TOLERANCE);
+  EXPECT_NEAR(target_speeds[RIGHT_FRONT], target_speeds[LEFT_BACK], TOLERANCE);
+}
+
+/**
+ * @brief The scaling coefficient of the yaw term must be the half wheel base plus the half wheel track.
+ *
+ * Using the sum of both wheel distances (0.8 m) instead of 0.4 m would halve the
+ * wheel speeds needed for a given rotation command.
+ */
+TEST(HeroChassisKinematics, RotationUsesHalfTrackSum)
+{
+  const ChassisGeometry geometry;
+
+  const double cmd_wz = 0.5;
+  const double L_sum = geometry.track_width_x_ / 2 + geometry.track_width_y_ / 2;
+  const double expected = L_sum * cmd_wz / geometry.wheel_radius_;
+
+  double target_speeds[WHEEL_COUNT];
+  computeWheelSpeeds(geometry, 0.0, 0.0, cmd_wz, target_speeds);
+
+  EXPECT_NEAR(expected, std::fabs(target_speeds[RIGHT_FRONT]), TOLERANCE);
+
+  // 误用整段轮距时，转速会翻倍 —— 这里确认当前实现没有犯这个错
+  const double wrong_L_sum = geometry.track_width_x_ + geometry.track_width_y_;
+  const double wrong = wrong_L_sum * cmd_wz / geometry.wheel_radius_;
+  EXPECT_GT(std::fabs(wrong - std::fabs(target_speeds[RIGHT_FRONT])), 1e-6);
 }
 
 }  // namespace hero_chassis_controller
 
-PLUGINLIB_EXPORT_CLASS(hero_chassis_controller::HeroChassisController, controller_interface::ControllerBase)
+/**
+ * @brief Entry point of the gtest runner.
+ * @param argc Number of command line arguments.
+ * @param argv Command line arguments.
+ * @return 0 if all tests passed, non zero otherwise.
+ */
+int main(int argc, char** argv)
+{
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

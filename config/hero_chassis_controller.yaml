@@ -1,5 +1,10 @@
 hero_chassis_controller:
   type: hero_chassis_controller/HeroChassisController
+
+  velocity_mode: "global"
+
+  world_frame: "odom"
+
   wheel_radius: 0.07625
   track_width_x: 0.4
   track_width_y: 0.4

@@ -19,6 +19,10 @@ find_package(catkin REQUIRED
         pluginlib
         realtime_tools
         control_toolbox
+        tf
+        tf2
+        tf2_ros
+        tf2_geometry_msgs
         )
 
 find_package(Eigen3 REQUIRED)
@@ -40,6 +44,11 @@ catkin_package(
     pluginlib
     realtime_tools
     control_toolbox
+    nav_msgs
+    tf
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
     DEPENDS
 )
 

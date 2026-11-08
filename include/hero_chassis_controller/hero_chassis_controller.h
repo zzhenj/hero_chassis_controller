@@ -5,11 +5,8 @@
 #ifndef HERO_CHASSIS_CONTROLLER_HERO_CHASSIS_CONTROLLER_H
 #define HERO_CHASSIS_CONTROLLER_HERO_CHASSIS_CONTROLLER_H
 
-#include <array>
+#include <memory>
 #include <string>
-#include <vector>
-
-#include <Eigen/Dense>
 
 #include <controller_interface/controller.h>
 #include <geometry_msgs/Twist.h>
@@ -20,7 +17,11 @@
 #include <ros/subscriber.h>
 #include <control_toolbox/pid.h>
 #include <ros/time.h>
-
+#include <nav_msgs/Odometry.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf/transform_listener.h>
 
 
 namespace hero_chassis_controller
@@ -55,6 +56,18 @@ class HeroChassisController
    double TRACK_WIDTH_Y_;
 
    control_toolbox::Pid pid_controllers_[4];
+
+   double x_ = 0.0;
+   double y_ = 0.0;
+   double theta_ = 0.0;
+
+   std::shared_ptr<realtime_tools::RealtimePublisher<nav_msgs::Odometry>> odom_pub_;
+
+   std::string velocity_mode_;
+   std::string world_frame_;
+
+   std::unique_ptr<tf::TransformListener> tf_listener_;
+   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 };
 
 }  // namespace hero_chassis_controller

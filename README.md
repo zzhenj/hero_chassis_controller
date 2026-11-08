@@ -119,7 +119,7 @@ Describe the quickest way to run this software, for example:
 
 Run the main node with
 
-	roslaunch hero_chassis_controller hero_chassis_controller .launch
+	roslaunch hero_chassis_controller hero_chassis_controller.launch
 
 ## Config files
 

@@ -13,14 +13,12 @@ find_package(catkin REQUIRED
         sensor_msgs
         geometry_msgs
         nav_msgs
-        tf
         controller_manager_msgs
         controller_interface
         hardware_interface
         pluginlib
         realtime_tools
         control_toolbox
-        dynamic_reconfigure
         )
 
 find_package(Eigen3 REQUIRED)
@@ -31,13 +29,11 @@ catkin_package(
     include
     ${EIGEN3_INCLUDE_DIR}
     LIBRARIES
-    ${PROJECT_NAME}_core
+    ${PROJECT_NAME}
     CATKIN_DEPENDS
     roscpp
     sensor_msgs
     geometry_msgs
-    nav_msgs
-    tf
     controller_manager_msgs
     controller_interface
     hardware_interface
@@ -54,36 +50,22 @@ include_directories(
     ${Boost_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME}_core
+add_library(${PROJECT_NAME}
     src/hero_chassis_controller.cpp
-    src/pid.cpp
 )
-target_compile_features(${PROJECT_NAME}_core INTERFACE cxx_std_11)
-
-add_executable(${PROJECT_NAME}
-    src/hero_chassis_controller_node.cpp
-)
-target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_11)
-
-add_dependencies(${PROJECT_NAME}_core
-    ${catkin_EXPORTED_TARGETS}
-)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_14)
 
 add_dependencies(${PROJECT_NAME}
     ${catkin_EXPORTED_TARGETS}
 )
 
-target_link_libraries(${PROJECT_NAME}_core
-    ${catkin_LIBRARIES}
-)
-
-target_link_libraries(${PROJECT_NAME}
-    ${PROJECT_NAME}_core
+target_link_libraries(
+    ${PROJECT_NAME}
     ${catkin_LIBRARIES}
 )
 
 install(
-    TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_core
+    TARGETS ${PROJECT_NAME}
     ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
     LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
     RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -113,9 +95,8 @@ install(
 if (${CATKIN_ENABLE_TESTING})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   catkin_add_gtest(${PROJECT_NAME}-test
-      test/hero_chassis_controller.cpp
-      test/pid.cpp)
-  target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_core)
+      test/hero_chassis_controller.cpp)
+  target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 endif ()
 
 roslint_cpp()

@@ -145,8 +145,11 @@ void HeroChassisController::update(const ros::Time& time, const ros::Duration& p
     {
       // Build the velocity vector in the world frame
       tf::Vector3 vel_world_vector(cmd_vx, cmd_vy, 0.0);
-      // Stamp the vector with the current time and the world frame
-      tf::Stamped<tf::Vector3> stamped_vel_world(vel_world_vector, time, world_frame_);
+      // Use the latest available transform: the odom -> base_link transform is
+      // broadcast by this very controller at the end of each update(), so the
+      // transform stamped with 'time' does not exist yet and would otherwise
+      // raise an extrapolation error.
+      tf::Stamped<tf::Vector3> stamped_vel_world(vel_world_vector, ros::Time(0), world_frame_);
       tf::Stamped<tf::Vector3> stamped_vel_body;
 
       // Transform the velocity vector into the chassis frame

@@ -237,7 +237,7 @@ void HeroChassisController::update(const ros::Time& time, const ros::Duration& p
   transform_stamped.transform.translation.z = 0.0;
   transform_stamped.transform.rotation = tf2::toMsg(q);
 
-  tf_broadcaster_.sendTransform(transform_stamped);
+  tf_broadcaster_->sendTransform(transform_stamped);
 }
 
 void HeroChassisController::stopping(const ros::Time& time)
